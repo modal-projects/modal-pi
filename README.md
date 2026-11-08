@@ -103,6 +103,38 @@ pi --provider modal --model "<endpoint-hostname>" --thinking off --no-session -p
 Pi runs file and shell tools with your permissions. Review the repository before
 running this command; inference is billable and the agent can edit files.
 
+## Releasing
+
+Releases use the `publish` GitHub Actions workflow when `package.json` changes on
+main. The workflow waits for `npm` environment approval, skips versions already
+on npm, and runs checks and clean-package tests before publishing a new stable
+version. It can also be dispatched manually from main to retry a release.
+
+One-time account setup by maintainers:
+
+1. Create the GitHub environment `npm`, require reviewer approval, and restrict
+   deployments to the `main` branch. The workflow uses this environment but does
+   not configure its protection rules.
+2. An npm maintainer with `@modal-labs` publishing permissions must handle initial
+   package creation and configure an [npm trusted publisher](https://docs.npmjs.com/trusted-publishers/)
+   for GitHub organization `modal-projects`, repository `modal-pi`, workflow
+   `publish.yml`, and environment `npm`. Enable the `npm publish` allowed action.
+   For initial creation, [npm staged publishing](https://docs.npmjs.com/staged-publishing/)
+   is an option; staging a new package creates a public `0.0.0-stage` placeholder
+   before the actual version is approved. Bootstrap publication is a separate
+   maintainer-approved action, not performed by this workflow.
+
+For a release, update the package version and lockfile, land the tested change on
+main, and approve the `npm` environment deployment. npm publication uses
+short-lived OIDC credentials; no npm
+token is stored in the workflow. The workflow uses Node 24 and npm 11.15.0 on a
+GitHub-hosted runner.
+
+The package is explicitly public. The source repository may remain internal,
+but npm provenance attestations are only available for public source repositories.
+After publishing, verify `pi install npm:@modal-labs/pi-provider` in a clean Pi
+environment and check authenticated discovery before announcing the release.
+
 ## Upstream listing
 
 Publishing the extension does not add it to Pi's provider documentation.

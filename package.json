@@ -4,6 +4,9 @@
 	"description": "Modal Endpoints provider extension for Pi",
 	"type": "module",
 	"license": "Apache-2.0",
+	"publishConfig": {
+		"access": "public"
+	},
 	"engines": {
 		"node": ">=22.19.0"
 	},

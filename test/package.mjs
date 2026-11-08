@@ -103,5 +103,12 @@ test(
 		assert.match(license, /4\. Redistribution\./);
 		assert.match(license, /END OF TERMS AND CONDITIONS/);
 		assert.match(license, /Copyright.*Modal Labs/);
+		const manifest = JSON.parse(
+			await readFile(
+				join(host, "node_modules/@modal-labs/pi-provider/package.json"),
+				"utf8",
+			),
+		);
+		assert.equal(manifest.publishConfig.access, "public");
 	},
 );

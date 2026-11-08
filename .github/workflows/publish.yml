@@ -1,0 +1,47 @@
+name: publish
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - name: Check npm version
+        id: version
+        run: |
+          VERSION=$(node -e 'const { version } = require("./package.json"); require("node:assert/strict").match(version, /^\d+\.\d+\.\d+$/, "Only stable versions may publish to latest"); console.log(version)')
+          STATUS=$(curl -sS --retry 3 -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/@modal-labs%2fpi-provider/$VERSION")
+          case "$STATUS" in
+            200) echo "::notice::@modal-labs/pi-provider@$VERSION is already published" ;;
+            404) echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "npm returned HTTP $STATUS for @modal-labs/pi-provider@$VERSION" >&2; exit 1 ;;
+          esac
+      - run: npm install --global npm@11.15.0
+        if: steps.version.outputs.publish == 'true'
+      - run: npm ci --ignore-scripts
+        if: steps.version.outputs.publish == 'true'
+      - run: npm run check
+        if: steps.version.outputs.publish == 'true'
+      - run: npm run test:package
+        if: steps.version.outputs.publish == 'true'
+      - run: npm publish --access public
+        if: steps.version.outputs.publish == 'true'
