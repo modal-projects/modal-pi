@@ -34,7 +34,8 @@ metadata. Unsupported thinking levels are not offered.
 Discovery runs on startup and after `/login modal`. Use `/reload` to refresh
 after creating or deleting endpoints. Discovery has a 15-second timeout.
 Catalogs stay in memory, scoped to the current credential; they are not restored
-from disk. Offline startup therefore has no discovered Modal models. A failed
+from disk. Pi's `--offline` / `PI_OFFLINE=1` skips discovery and therefore starts
+without Modal models. A failed
 refresh retains models only for the same credential during that process.
 
 Cost estimates use [Modal's published Shared Endpoint rates](https://modal.com/docs/guide/supported-models),
@@ -43,6 +44,24 @@ model it shows zero estimates, and the model name explicitly says
 `[cost unavailable]`. This does **not** mean inference is free. Estimates can lag
 price changes; Modal billing is authoritative. Dedicated/custom endpoint URLs
 and compute-based billing are outside this extension's scope.
+
+Requests use Pi's OpenAI Chat Completions implementation. Pi's session ID becomes
+the `Modal-Routing-Affinity-Key` header, keeping a conversation routed consistently.
+Explicit caller overrides (including a null header to suppress affinity) are preserved.
+
+## Testing
+
+`npm run check` runs lint, type-checking, and offline auth/discovery/protocol tests.
+For billable integration tests against an existing endpoint:
+
+```sh
+MODAL_PROXY_TOKEN=wk-<id>.ws-<secret> npm run test:live
+```
+
+Optionally set `MODAL_MODEL` to its endpoint hostname. The tests need a model with
+tools, image input, and reasoning that can be disabled. They exercise stored-key
+login, multi-turn tools, reasoning replay, usage/cost, vision, and cancellation.
+They do not create endpoints, alter files, or publish packages.
 
 ## Upstream listing
 

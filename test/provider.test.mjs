@@ -15,6 +15,24 @@ function registry(env = {}, credentials = new InMemoryCredentialStore()) {
 	return models;
 }
 
+test("offline startup registers without attempting discovery", async (t) => {
+	const old = process.env.PI_OFFLINE;
+	process.env.PI_OFFLINE = "1";
+	try {
+		const fetch = t.mock.method(globalThis, "fetch", async () => {
+			throw new Error("unexpected request");
+		});
+		const providers = [];
+		await modal({ registerProvider: (provider) => providers.push(provider) });
+		assert.equal(providers.length, 1);
+		assert.deepEqual(providers[0].getModels(), []);
+		assert.equal(fetch.mock.callCount(), 0);
+	} finally {
+		if (old === undefined) delete process.env.PI_OFFLINE;
+		else process.env.PI_OFFLINE = old;
+	}
+});
+
 test("registers the Modal provider without replacing another provider", async () => {
 	const providers = [];
 	await modal({

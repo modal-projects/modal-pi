@@ -4,6 +4,7 @@ import {
 	type Model,
 	type ModelThinkingLevel,
 	type Provider,
+	type StreamOptions,
 	type ThinkingLevelMap,
 } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
@@ -12,6 +13,23 @@ import {
 	ModelRuntime,
 } from "@earendil-works/pi-coding-agent";
 import { modelCost } from "./pricing.js";
+
+function withAffinity<T extends StreamOptions>(options?: T): T | undefined {
+	if (
+		!options?.sessionId ||
+		Object.keys(options.headers ?? {}).some(
+			(name) => name.toLowerCase() === "modal-routing-affinity-key",
+		)
+	)
+		return options;
+	return {
+		...options,
+		headers: {
+			...options.headers,
+			"Modal-Routing-Affinity-Key": options.sessionId,
+		},
+	};
+}
 
 function record(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -125,6 +143,7 @@ export function createModalProvider(): Provider<"openai-completions"> {
 	const auth = envApiKeyAuth("Modal proxy token (wk-<id>.ws-<secret>)", [
 		"MODAL_PROXY_TOKEN",
 	]);
+	const api = openAICompletionsApi();
 	const provider = createProvider<"openai-completions">({
 		id: "modal",
 		name: "Modal",
@@ -154,7 +173,12 @@ export function createModalProvider(): Provider<"openai-completions"> {
 			},
 		},
 		models: [],
-		api: openAICompletionsApi(),
+		api: {
+			stream: (model, context, options) =>
+				api.stream(model, context, withAffinity(options)),
+			streamSimple: (model, context, options) =>
+				api.streamSimple(model, context, withAffinity(options)),
+		},
 	});
 	return {
 		...provider,
@@ -196,16 +220,26 @@ export function createModalProvider(): Provider<"openai-completions"> {
 
 export default async function modal(pi: ExtensionAPI) {
 	const provider = createModalProvider();
+	if (/^(1|true|yes)$/i.test(process.env.PI_OFFLINE ?? "")) {
+		pi.registerProvider(provider);
+		return;
+	}
 	// Pi's initial extension refresh is cache-only, so discover before registration.
 	const runtime = await ModelRuntime.create({ refreshOnCreate: false });
 	runtime.registerNativeProvider(provider);
-	const { errors } = await runtime.refresh({
+	const { errors, aborted } = await runtime.refresh({
 		providers: ["modal"],
 		allowNetwork: true,
 		signal: AbortSignal.timeout(15_000),
 	});
 	pi.registerProvider(provider);
-	const error = errors.get("modal");
+	const error =
+		errors.get("modal") ??
+		(aborted
+			? new Error(
+					"Modal model discovery timed out. Check connectivity and run /reload.",
+				)
+			: undefined);
 	if (error)
 		pi.on("session_start", (_event, context) => {
 			context.ui.notify(error.message, "warning");
