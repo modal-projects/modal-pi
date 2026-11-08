@@ -15,9 +15,12 @@ function registry(env = {}, credentials = new InMemoryCredentialStore()) {
 	return models;
 }
 
-test("registers the Modal provider without replacing another provider", () => {
+test("registers the Modal provider without replacing another provider", async () => {
 	const providers = [];
-	modal({ registerProvider: (provider) => providers.push(provider) });
+	await modal({
+		registerProvider: (provider) => providers.push(provider),
+		on: () => {},
+	});
 	assert.equal(providers.length, 1);
 	assert.equal(providers[0].id, "modal");
 	assert.equal(providers[0].name, "Modal");
@@ -34,7 +37,8 @@ test("resolves the combined proxy token from the environment", async () => {
 	});
 });
 
-test("stored login takes precedence over the environment and logout restores it", async () => {
+test("stored login takes precedence over the environment and logout restores it", async (t) => {
+	t.mock.method(globalThis, "fetch", async () => Response.json({ data: [] }));
 	const credentials = new InMemoryCredentialStore();
 	const models = registry({ MODAL_PROXY_TOKEN: "wk-env.ws-env" }, credentials);
 	await models.login("modal", "api_key", {
