@@ -96,5 +96,12 @@ test(
 	`,
 		]);
 		assert.match(loaded.stdout, /PACKAGED_OK/);
+		const license = await readFile(
+			join(host, "node_modules/@modal-labs/pi-provider/LICENSE"),
+			"utf8",
+		);
+		assert.match(license, /4\. Redistribution\./);
+		assert.match(license, /END OF TERMS AND CONDITIONS/);
+		assert.match(license, /Copyright.*Modal Labs/);
 	},
 );

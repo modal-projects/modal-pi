@@ -3,9 +3,38 @@
 Provider extension for [Pi](https://pi.dev) using
 [Modal Shared Endpoints](https://modal.com/docs/guide/shared-endpoints).
 
-## Development
+## Install and authenticate
 
-Requires Node.js 22.19 or later. Tested against Pi 1.5.0.
+Requires Node.js 22.19 or later and an existing [Pi installation](https://pi.dev).
+Tested against Pi 1.5.0.
+
+```sh
+pi install npm:@modal-labs/pi-provider
+```
+
+1. Create an authenticated [Shared Endpoint](https://modal.com/docs/guide/shared-endpoints).
+2. Create a [proxy token](https://modal.com/docs/guide/endpoints#proxy-tokens)
+   authorized for that endpoint's environment. Use the combined `wk-<id>.ws-<secret>`
+   value, not Modal CLI API credentials.
+3. Set `MODAL_PROXY_TOKEN` securely in Pi's environment. For example, in Bash,
+   read it without displaying it or recording the value in shell history:
+
+   ```bash
+   read -rsp "Modal proxy token: " MODAL_PROXY_TOKEN
+   export MODAL_PROXY_TOKEN
+   printf '\n'
+   pi
+   ```
+
+4. Run `/model` in Pi and select your Modal endpoint. Selection uses the endpoint
+   hostname, not its underlying Hugging Face model ID. Inference is billable.
+
+**Pi 1.5.0 login warning:** `/login modal` displays token input in plaintext.
+Do not enter a real token into that prompt. Use `MODAL_PROXY_TOKEN` until Pi's
+secret-input masking is fixed and verified. The provider requests secret input,
+but Pi 1.5.0 renders it as an ordinary text field.
+
+## Development
 
 ```sh
 npm install --ignore-scripts
@@ -18,10 +47,6 @@ Build before loading the local package:
 npm run build
 pi install ./
 ```
-
-Authenticate with `/login modal`, or set `MODAL_PROXY_TOKEN` to a combined
-`wk-<id>.ws-<secret>` [proxy token](https://modal.com/docs/guide/endpoints#proxy-tokens).
-Modal CLI API tokens are not inference credentials.
 
 ## Models and billing
 
