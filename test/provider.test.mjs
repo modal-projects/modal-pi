@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import { createModels, InMemoryCredentialStore } from "@earendil-works/pi-ai";
+import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import modal, { createModalProvider } from "../dist/index.js";
 
 function registry(env = {}, credentials = new InMemoryCredentialStore()) {
@@ -14,6 +18,82 @@ function registry(env = {}, credentials = new InMemoryCredentialStore()) {
 	models.setProvider(createModalProvider());
 	return models;
 }
+
+test(
+	"startup discovery survives Pi's concurrent cache-only refresh",
+	{ timeout: 5000 },
+	async (t) => {
+		const directory = await mkdtemp(join(tmpdir(), "modal-pi-startup-"));
+		const old = process.env.PI_CODING_AGENT_DIR;
+		process.env.PI_CODING_AGENT_DIR = directory;
+		try {
+			await writeFile(
+				join(directory, "auth.json"),
+				JSON.stringify({
+					modal: { type: "api_key", key: "wk-startup.ws-startup" },
+				}),
+			);
+			await writeFile(
+				join(directory, "models.json"),
+				JSON.stringify({
+					providers: { modal: { baseUrl: "https://fixture.invalid/v1" } },
+				}),
+			);
+			const networkStarted = Promise.withResolvers();
+			const offlineFinished = Promise.withResolvers();
+			const refresh = ModelRuntime.prototype.refresh;
+			t.mock.method(
+				ModelRuntime.prototype,
+				"refresh",
+				async function (options) {
+					if (options?.allowNetwork !== false)
+						return refresh.call(this, options);
+					await networkStarted.promise;
+					try {
+						return await refresh.call(this, options);
+					} finally {
+						offlineFinished.resolve();
+					}
+				},
+			);
+			t.mock.method(globalThis, "fetch", async (url, options) => {
+				assert.equal(url, "https://fixture.invalid/v1/models");
+				assert.equal(
+					options.headers.Authorization,
+					"Bearer wk-startup.ws-startup",
+				);
+				networkStarted.resolve();
+				await offlineFinished.promise;
+				return Response.json({
+					data: [
+						{
+							id: "startup.modal.direct",
+							name: "Startup",
+							base_model_id: "deepseek-ai/DeepSeek-V4.1-Flash",
+							context_length: 32768,
+							max_output_length: 4096,
+							input_modalities: ["text"],
+							output_modalities: ["text"],
+							supported_features: ["tools"],
+						},
+					],
+				});
+			});
+			const providers = [];
+			const warnings = [];
+			await modal({
+				registerProvider: (provider) => providers.push(provider),
+				on: (name) => warnings.push(name),
+			});
+			assert.deepEqual(warnings, []);
+			assert.equal(providers[0].getModels()[0]?.id, "startup.modal.direct");
+		} finally {
+			if (old === undefined) delete process.env.PI_CODING_AGENT_DIR;
+			else process.env.PI_CODING_AGENT_DIR = old;
+			await rm(directory, { recursive: true, force: true });
+		}
+	},
+);
 
 test("offline startup registers without attempting discovery", async (t) => {
 	const old = process.env.PI_OFFLINE;

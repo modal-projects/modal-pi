@@ -222,3 +222,23 @@ test("cancels discovery without publishing a late catalog", async (t) => {
 	assert.equal(result.aborted, true);
 	assert.deepEqual(provider.getModels(), []);
 });
+
+test("never includes transport details or invalid response bodies in discovery errors", async (t) => {
+	let transportFailure = true;
+	t.mock.method(globalThis, "fetch", async () => {
+		if (transportFailure)
+			throw new Error("Invalid header: Bearer wk-private.ws-private");
+		return new Response("invalid JSON with wk-private.ws-private");
+	});
+	const { models } = registry();
+	let result = await models.refresh({ allowNetwork: true });
+	assert.match(
+		result.errors.get("modal").message,
+		/could not reach the gateway/,
+	);
+	assert.doesNotMatch(result.errors.get("modal").message, /wk-private/);
+	transportFailure = false;
+	result = await models.refresh({ allowNetwork: true });
+	assert.match(result.errors.get("modal").message, /invalid model catalog/);
+	assert.doesNotMatch(result.errors.get("modal").message, /wk-private/);
+});

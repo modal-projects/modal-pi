@@ -117,9 +117,15 @@ function toModel(
 }
 
 async function discover(key: string, baseUrl: string, signal: AbortSignal) {
+	const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(15_000)]);
 	const response = await fetch(`${baseUrl}/models`, {
 		headers: { Authorization: `Bearer ${key}` },
-		signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
+		signal: requestSignal,
+	}).catch(() => {
+		requestSignal.throwIfAborted();
+		throw new Error(
+			"Modal model discovery could not reach the gateway. Check connectivity and run /reload.",
+		);
 	});
 	if (!response.ok) {
 		throw new Error(
@@ -128,7 +134,10 @@ async function discover(key: string, baseUrl: string, signal: AbortSignal) {
 				: `Modal model discovery failed (HTTP ${response.status}).`,
 		);
 	}
-	const payload: unknown = await response.json();
+	const payload: unknown = await response.json().catch(() => {
+		requestSignal.throwIfAborted();
+		throw new Error("Modal returned an invalid model catalog.");
+	});
 	if (!record(payload) || !Array.isArray(payload.data))
 		throw new Error("Modal returned an invalid model catalog.");
 	signal.throwIfAborted();
@@ -224,24 +233,35 @@ export default async function modal(pi: ExtensionAPI) {
 		pi.registerProvider(provider);
 		return;
 	}
-	// Pi's initial extension refresh is cache-only, so discover before registration.
-	const runtime = await ModelRuntime.create({ refreshOnCreate: false });
-	runtime.registerNativeProvider(provider);
-	const { errors, aborted } = await runtime.refresh({
-		providers: ["modal"],
-		allowNetwork: true,
-		signal: AbortSignal.timeout(15_000),
-	});
-	pi.registerProvider(provider);
-	const error =
-		errors.get("modal") ??
-		(aborted
-			? new Error(
-					"Modal model discovery timed out. Check connectivity and run /reload.",
-				)
-			: undefined);
-	if (error)
+	const signal = AbortSignal.timeout(15_000);
+	try {
+		// Pi's automatic cache-only refresh must not supersede startup discovery.
+		const runtime = await ModelRuntime.create({ refreshOnCreate: false });
+		runtime.registerNativeProvider({ ...provider, refreshModels: undefined });
+		const resolution = await runtime.getAuth("modal", { signal });
+		if (resolution?.auth.apiKey) {
+			await provider.refreshModels?.({
+				credential: { type: "api_key", key: resolution.auth.apiKey },
+				baseUrl:
+					resolution.auth.baseUrl ?? runtime.getProvider("modal")?.baseUrl,
+				allowNetwork: true,
+				signal,
+				publish: async ({ update }) => {
+					signal.throwIfAborted();
+					update?.();
+					return true;
+				},
+			});
+		}
+	} catch (error) {
+		const message = signal.aborted
+			? "Modal model discovery timed out. Check connectivity and run /reload."
+			: error instanceof Error
+				? error.message
+				: "Modal model discovery failed.";
 		pi.on("session_start", (_event, context) => {
-			context.ui.notify(error.message, "warning");
+			context.ui.notify(message, "warning");
 		});
+	}
+	pi.registerProvider(provider);
 }
