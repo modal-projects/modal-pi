@@ -33,10 +33,10 @@ Pi loads the TypeScript source without a build step.
 4. Run `/model` in Pi and select your Modal endpoint. Selection uses the endpoint
    hostname, not its underlying Hugging Face model ID. Inference is billable.
 
-**Pi 1.5.0 login warning:** `/login modal` displays token input in plaintext.
-Do not enter a real token into that prompt. Use `MODAL_PROXY_TOKEN` until Pi's
-secret-input masking is fixed and verified. The provider requests secret input,
-but Pi 1.5.0 renders it as an ordinary text field.
+**Pi 1.5.0 and 1.5.1 login warning:** `/login modal` displays token input in
+plaintext. Do not enter a real token into that prompt. Use `MODAL_PROXY_TOKEN`
+until Pi's secret-input masking is fixed and verified. The provider requests
+secret input, but Pi 1.5.0 and 1.5.1 render it as an ordinary text field.
 
 ## Development
 
