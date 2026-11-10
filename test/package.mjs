@@ -56,8 +56,8 @@ test(
 				"--no-audit",
 				"--no-fund",
 				join(directory, pack.filename),
-				"@earendil-works/pi-ai@1.5.0",
-				"@earendil-works/pi-coding-agent@1.5.0",
+				"@earendil-works/pi-ai@1.5.1",
+				"@earendil-works/pi-coding-agent@1.5.1",
 			],
 			{ cwd: host, timeout: 60_000 },
 		);

@@ -6,7 +6,7 @@ Provider extension for [Pi](https://pi.dev) using
 ## Install and authenticate
 
 Requires Node.js 22.19 or later and an existing [Pi installation](https://pi.dev).
-Tested against Pi 1.5.0.
+Tested against Pi 1.5.1.
 
 ```sh
 pi install npm:@modal-labs/pi-provider
