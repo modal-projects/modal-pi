@@ -12,6 +12,10 @@ Tested against Pi 1.5.0.
 pi install npm:@modal-labs/pi-provider
 ```
 
+For development builds, use `pi install git:github.com/modal-projects/modal-pi@main`.
+This requires Git and, while the repository is internal, GitHub access.
+Pi loads the TypeScript source without a build step.
+
 1. Create an authenticated [Shared Endpoint](https://modal.com/docs/guide/shared-endpoints).
 2. Create a [proxy token](https://modal.com/docs/guide/endpoints#proxy-tokens)
    authorized for that endpoint's environment. Use the combined `wk-<id>.ws-<secret>`
@@ -41,10 +45,9 @@ npm install --ignore-scripts
 npm run check
 ```
 
-Build before loading the local package:
+Load the local package directly; Pi handles TypeScript:
 
 ```sh
-npm run build
 pi install ./
 ```
 
@@ -77,8 +80,10 @@ Explicit caller overrides (including a null header to suppress affinity) are pre
 ## Testing
 
 `npm run check` runs lint, type-checking, and offline auth/discovery/protocol tests.
-`npm run test:package` builds a tarball, installs it with Pi in a clean directory,
-and verifies package registration and the compiled extension's imports.
+`npm run test:package` installs a tarball and a fresh Git checkout of the committed
+HEAD in an isolated Pi environment. It verifies that Pi loads the TypeScript
+entrypoint and registers Modal, without credentials or a build in the Git checkout.
+It also checks the tarball's compiled imports, source files, and license.
 Both commands run in CI on Node 22 and 24. `npm pack` builds the extension automatically.
 
 For billable integration tests against an existing endpoint:
