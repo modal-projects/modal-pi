@@ -7,7 +7,7 @@ import {
 	type StreamOptions,
 	type ThinkingLevelMap,
 } from "@earendil-works/pi-ai";
-import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
 import {
 	type ExtensionAPI,
 	ModelRuntime,
